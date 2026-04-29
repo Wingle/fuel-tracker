@@ -84,7 +84,7 @@ class PaginatedRecords(BaseModel):
 
 
 class StatsOut(BaseModel):
-    total_mileage: float  # 总行驶里程
+    total_mileage: float  # 车辆总里程（仪表盘里程）
     total_cost: float  # 加油总费用
     total_volume: float  # 总加油量
     avg_consumption: Optional[float]  # 平均油耗 L/100km
@@ -226,17 +226,18 @@ def get_stats(db: Session = Depends(get_db)):
 
     first = records[0]
     last = records[-1]
-    total_mileage = last.mileage - first.mileage if count > 1 else 0
+    total_mileage = last.mileage  # 仪表盘里程：最新一次录入的里程数
+    driven_mileage = last.mileage - first.mileage if count > 1 else 0  # 记录期间行驶里程
     total_cost = sum(r.total_price or 0 for r in records)
     total_volume_all = sum(r.volume or 0 for r in records)
 
-    # 平均油耗: 总油量 / 总里程 * 100 (排除第一次，因为第一次的油量不对应可计算的区间)
+    # 平均油耗: 总油量 / 行驶里程 * 100 (排除第一次，因为第一次的油量不对应可计算的区间)
     total_volume = sum(r.volume or 0 for r in records[1:]) if count > 1 else 0
-    avg_consumption = round(total_volume / total_mileage * 100, 2) if total_mileage > 0 and total_volume > 0 else None
+    avg_consumption = round(total_volume / driven_mileage * 100, 2) if driven_mileage > 0 and total_volume > 0 else None
 
     # 日均里程
     days_span = (last.date - first.date).days if count > 1 else 0
-    daily_mileage = round(total_mileage / days_span, 1) if days_span > 0 else None
+    daily_mileage = round(driven_mileage / days_span, 1) if days_span > 0 else None
 
     return StatsOut(
         total_mileage=round(total_mileage, 1),

@@ -54,6 +54,11 @@ fuel-tracker/
 git clone <repo-url> fuel-tracker
 cd fuel-tracker
 
+# 创建并激活 Python 虚拟环境（推荐）
+python3 -m venv venv
+source venv/bin/activate   # Linux / macOS
+# venv\Scripts\activate    # Windows
+
 # 安装依赖
 pip install -r requirements.txt
 
