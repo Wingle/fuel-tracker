@@ -13,8 +13,16 @@
             <h1>📊 统计汇总</h1>
         </header>
 
+        <!-- 车辆选择栏 -->
+        <div class="vehicle-bar">
+            <div class="vehicle-select-group">
+                <label for="vehicleSelect">当前车辆</label>
+                <select id="vehicleSelect" onchange="onVehicleChange()"></select>
+            </div>
+        </div>
+
         <!-- 全局统计卡片 -->
-        <div class="stats-grid" id="statsGrid">
+        <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">车辆总里程</div>
                 <div class="stat-value" id="statMileage">-- km</div>
@@ -47,7 +55,7 @@
 
         <!-- 汇总表格 -->
         <div class="table-wrapper">
-            <table id="summaryTable">
+            <table>
                 <thead>
                     <tr>
                         <th id="colPeriod">年度</th>

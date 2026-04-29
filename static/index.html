@@ -12,6 +12,15 @@
             <h1>⛽ 油耗记录</h1>
         </header>
 
+        <!-- 车辆选择栏 -->
+        <div class="vehicle-bar">
+            <div class="vehicle-select-group">
+                <label for="vehicleSelect">当前车辆</label>
+                <select id="vehicleSelect" onchange="onVehicleChange()"></select>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="openVehicleModal()">管理车辆</button>
+        </div>
+
         <!-- 统计卡片 -->
         <div class="stats-grid" id="statsGrid">
             <div class="stat-card">
@@ -60,14 +69,12 @@
                         <th>操作</th>
                     </tr>
                 </thead>
-                <tbody id="recordsBody">
-                </tbody>
+                <tbody id="recordsBody"></tbody>
             </table>
             <div class="empty-state" id="emptyState" style="display:none;">
                 <p>暂无加油记录</p>
                 <p class="sub">点击「添加记录」开始记录你的油耗</p>
             </div>
-            <!-- 分页栏 -->
             <div class="pagination" id="pagination" style="display:none;">
                 <div class="page-size-select">
                     <label>每页</label>
@@ -82,17 +89,17 @@
                 </div>
                 <div class="page-info" id="pageInfo"></div>
                 <div class="page-btns">
-                    <button class="btn btn-page" id="btnFirst" onclick="goToPage(1)" title="首页">&laquo;</button>
-                    <button class="btn btn-page" id="btnPrev" onclick="goToPage(currentPage-1)" title="上一页">&lsaquo;</button>
+                    <button class="btn btn-page" id="btnFirst" onclick="goToPage(1)">&laquo;</button>
+                    <button class="btn btn-page" id="btnPrev" onclick="goToPage(currentPage-1)">&lsaquo;</button>
                     <span class="page-numbers" id="pageNumbers"></span>
-                    <button class="btn btn-page" id="btnNext" onclick="goToPage(currentPage+1)" title="下一页">&rsaquo;</button>
-                    <button class="btn btn-page" id="btnLast" onclick="goToPage(totalPages)" title="末页">&raquo;</button>
+                    <button class="btn btn-page" id="btnNext" onclick="goToPage(currentPage+1)">&rsaquo;</button>
+                    <button class="btn btn-page" id="btnLast" onclick="goToPage(totalPages)">&raquo;</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 添加/编辑弹窗 -->
+    <!-- 添加/编辑记录弹窗 -->
     <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
         <div class="modal" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -146,7 +153,7 @@
             <p style="padding: 0 24px; color: #555;">确定要删除这条加油记录吗？此操作不可恢复。</p>
             <div class="form-actions">
                 <button class="btn btn-cancel" onclick="closeDeleteModal()">取消</button>
-                <button class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDelete()">删除</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">删除</button>
             </div>
         </div>
     </div>
@@ -161,7 +168,7 @@
             <div style="padding: 20px 24px;">
                 <p style="font-size: 0.85rem; color: #555; margin-bottom: 16px;">
                     支持导入 <strong>.xlsx</strong> 格式的油耗记录文件。<br>
-                    需包含「加油日期」和「行驶里程」列，重复记录会自动跳过。
+                    记录将导入到当前选中的车辆，重复记录会自动跳过。
                 </p>
                 <div class="file-upload-area" id="fileUploadArea">
                     <input type="file" id="importFile" accept=".xlsx,.xls" onchange="onFileSelected()" style="display:none;">
@@ -181,6 +188,35 @@
             <div class="form-actions">
                 <button class="btn btn-cancel" onclick="closeImportModal()">取消</button>
                 <button class="btn btn-primary" id="importBtn" onclick="doImport()" disabled>开始导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 车辆管理弹窗 -->
+    <div class="modal-overlay" id="vehicleOverlay" onclick="closeVehicleModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>管理车辆</h2>
+                <button class="modal-close" onclick="closeVehicleModal()">&times;</button>
+            </div>
+            <div style="padding: 20px 24px;">
+                <div id="vehicleList"></div>
+                <div class="vehicle-add-form" id="vehicleAddForm">
+                    <h3 id="vehicleFormTitle">添加车辆</h3>
+                    <input type="hidden" id="vEditId" value="">
+                    <div class="form-group">
+                        <label>车辆名称 <span class="required">*</span></label>
+                        <input type="text" id="vName" placeholder="例如：我的车" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label>车牌号</label>
+                        <input type="text" id="vPlate" placeholder="可选" maxlength="20">
+                    </div>
+                    <div class="form-actions" style="padding: 8px 0 0;">
+                        <button type="button" class="btn btn-cancel" onclick="resetVehicleForm()">取消</button>
+                        <button type="button" class="btn btn-primary" onclick="saveVehicle()">保存</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
