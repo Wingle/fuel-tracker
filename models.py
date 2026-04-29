@@ -13,6 +13,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    security_question: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, default="")
+    security_answer_hash: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
 
     sessions: Mapped[list["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")

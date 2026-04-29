@@ -127,6 +127,59 @@
         .auth-error.show {
             display: block;
         }
+        .auth-success {
+            padding: 10px 14px;
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .auth-success.show {
+            display: block;
+        }
+        .forgot-link {
+            display: block;
+            text-align: center;
+            margin-top: 14px;
+            font-size: 0.85rem;
+            color: var(--primary);
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .forgot-link:hover {
+            opacity: 0.7;
+        }
+        .back-to-login {
+            display: block;
+            text-align: center;
+            margin-top: 14px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .back-to-login:hover {
+            color: var(--primary);
+        }
+        .security-question-display {
+            padding: 12px 14px;
+            background: var(--border-light);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.92rem;
+            color: var(--text);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
@@ -135,7 +188,7 @@
             <h1>⛽ 油耗记录</h1>
             <p>记录每一次加油，掌控出行成本</p>
         </div>
-        <div class="auth-tabs">
+        <div class="auth-tabs" id="authTabs">
             <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">登录</button>
             <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">注册</button>
         </div>
@@ -152,6 +205,7 @@
                 <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="请输入密码">
             </div>
             <button type="submit" class="auth-btn" id="loginBtn">登 录</button>
+            <button type="button" class="forgot-link" onclick="showForgotPassword()">忘记密码？</button>
         </form>
 
         <!-- 注册表单 -->
@@ -169,8 +223,52 @@
                 <label>确认密码</label>
                 <input type="password" id="regPassword2" required autocomplete="new-password" placeholder="请再次输入密码">
             </div>
+            <div class="form-group">
+                <label>安全提示问题 <span style="color:var(--text-muted); font-weight:400;">（用于找回密码）</span></label>
+                <input type="text" id="regSecurityQuestion" required placeholder="例如：我的第一辆车是什么品牌？" maxlength="200">
+            </div>
+            <div class="form-group">
+                <label>安全提示答案</label>
+                <input type="text" id="regSecurityAnswer" required placeholder="请输入答案" maxlength="100">
+            </div>
             <button type="submit" class="auth-btn" id="regBtn">注 册</button>
         </form>
+
+        <!-- 忘记密码 - Step 1: 输入用户名 -->
+        <div class="auth-form" id="forgotStep1" style="display:none;">
+            <div class="auth-error" id="forgotError1"></div>
+            <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 18px;">请输入你的用户名，我们将显示你注册时设置的安全提示问题。</p>
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="forgotUsername" required placeholder="请输入用户名">
+            </div>
+            <button type="button" class="auth-btn" id="forgotStep1Btn" onclick="handleForgotStep1()">下一步</button>
+            <button type="button" class="back-to-login" onclick="switchTab('login')">返回登录</button>
+        </div>
+
+        <!-- 忘记密码 - Step 2: 回答问题 + 设新密码 -->
+        <div class="auth-form" id="forgotStep2" style="display:none;">
+            <div class="auth-error" id="forgotError2"></div>
+            <div class="auth-success" id="forgotSuccess"></div>
+            <div class="form-group">
+                <label>安全提示问题</label>
+                <div class="security-question-display" id="forgotQuestionDisplay"></div>
+            </div>
+            <div class="form-group">
+                <label>答案</label>
+                <input type="text" id="forgotAnswer" required placeholder="请输入答案">
+            </div>
+            <div class="form-group">
+                <label>新密码 <span style="color:var(--text-muted); font-weight:400;">（至少 6 个字符）</span></label>
+                <input type="password" id="forgotNewPassword" required placeholder="请输入新密码" minlength="6">
+            </div>
+            <div class="form-group">
+                <label>确认新密码</label>
+                <input type="password" id="forgotNewPassword2" required placeholder="请再次输入新密码">
+            </div>
+            <button type="button" class="auth-btn" id="forgotStep2Btn" onclick="handleForgotStep2()">重置密码</button>
+            <button type="button" class="back-to-login" onclick="switchTab('login')">返回登录</button>
+        </div>
     </div>
 
     <script src="/login.js"></script>

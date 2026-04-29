@@ -97,26 +97,52 @@ class AuthRequest(BaseModel):
     username: str
     password: str
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    security_question: str
+    security_answer: str
+
 class AuthResponse(BaseModel):
     token: str
     user_id: int
     username: str
+
+class ForgotPasswordQuestionRequest(BaseModel):
+    username: str
+
+class ForgotPasswordQuestionResponse(BaseModel):
+    security_question: str
+
+class ForgotPasswordResetRequest(BaseModel):
+    username: str
+    security_answer: str
+    new_password: str
 
 
 # ---------------------------------------------------------------------------
 # Auth API (no token required)
 # ---------------------------------------------------------------------------
 @app.post("/api/auth/register", response_model=AuthResponse)
-def register(payload: AuthRequest, db: Session = Depends(get_db)):
+def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     username = payload.username.strip()
     if len(username) < 2 or len(username) > 50:
         raise HTTPException(status_code=400, detail="用户名长度需要 2-50 个字符")
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="密码长度至少 6 个字符")
+    if not payload.security_question.strip():
+        raise HTTPException(status_code=400, detail="请输入安全提示问题")
+    if not payload.security_answer.strip():
+        raise HTTPException(status_code=400, detail="请输入安全提示问题的答案")
     existing = db.query(User).filter(User.username == username).first()
     if existing:
         raise HTTPException(status_code=400, detail="用户名已被注册")
-    user = User(username=username, password_hash=hash_password(payload.password))
+    user = User(
+        username=username,
+        password_hash=hash_password(payload.password),
+        security_question=payload.security_question.strip(),
+        security_answer_hash=hash_password(payload.security_answer.strip()),
+    )
     db.add(user)
     db.flush()
     token = create_token()
@@ -153,6 +179,33 @@ def logout(
 @app.get("/api/auth/me")
 def get_me(user: User = Depends(get_current_user)):
     return {"user_id": user.id, "username": user.username}
+
+
+# ---------------------------------------------------------------------------
+# Forgot password API (no token required)
+# ---------------------------------------------------------------------------
+@app.post("/api/auth/forgot-password/question", response_model=ForgotPasswordQuestionResponse)
+def forgot_password_question(payload: ForgotPasswordQuestionRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == payload.username.strip()).first()
+    if not user or not user.security_question:
+        raise HTTPException(status_code=404, detail="用户不存在或未设置安全提示问题")
+    return ForgotPasswordQuestionResponse(security_question=user.security_question)
+
+
+@app.post("/api/auth/forgot-password/reset")
+def forgot_password_reset(payload: ForgotPasswordResetRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == payload.username.strip()).first()
+    if not user or not user.security_answer_hash:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if not verify_password(payload.security_answer.strip(), user.security_answer_hash):
+        raise HTTPException(status_code=400, detail="安全提示问题的答案不正确")
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="新密码长度至少 6 个字符")
+    user.password_hash = hash_password(payload.new_password)
+    # 清除所有现有会话，强制重新登录
+    db.query(UserSession).filter(UserSession.user_id == user.id).delete()
+    db.commit()
+    return {"ok": True, "message": "密码重置成功，请重新登录"}
 
 
 # ---------------------------------------------------------------------------
