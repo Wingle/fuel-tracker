@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 油耗记录</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .auth-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
+        }
+        .auth-header {
+            text-align: center;
+            padding: 32px 24px 20px;
+        }
+        .auth-header h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+        .auth-header p {
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+        }
+        .auth-tabs {
+            display: flex;
+            border-bottom: 2px solid var(--border-light);
+        }
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .auth-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+        .auth-tab:hover:not(.active) {
+            color: var(--text-secondary);
+        }
+        .auth-form {
+            padding: 24px;
+        }
+        .auth-form .form-group {
+            margin-bottom: 18px;
+        }
+        .auth-form .form-group label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 6px;
+            display: block;
+        }
+        .auth-form .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 16px;
+            color: var(--text);
+            background: var(--border-light);
+            transition: all 0.2s;
+        }
+        .auth-form .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+            background: #fff;
+        }
+        .auth-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 700;
+            color: #fff;
+            background: var(--gradient-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(79, 109, 245, 0.3);
+            min-height: 48px;
+        }
+        .auth-btn:hover {
+            box-shadow: 0 4px 16px rgba(79, 109, 245, 0.4);
+            transform: translateY(-1px);
+        }
+        .auth-btn:active {
+            transform: scale(0.98);
+        }
+        .auth-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .auth-error {
+            padding: 10px 14px;
+            background: var(--danger-light);
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .auth-error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>⛽ 油耗记录</h1>
+            <p>记录每一次加油，掌控出行成本</p>
+        </div>
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">登录</button>
+            <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">注册</button>
+        </div>
+
+        <!-- 登录表单 -->
+        <form class="auth-form" id="loginForm" onsubmit="handleLogin(event)">
+            <div class="auth-error" id="loginError"></div>
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="loginUsername" required autocomplete="username" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="请输入密码">
+            </div>
+            <button type="submit" class="auth-btn" id="loginBtn">登 录</button>
+        </form>
+
+        <!-- 注册表单 -->
+        <form class="auth-form" id="registerForm" style="display:none;" onsubmit="handleRegister(event)">
+            <div class="auth-error" id="registerError"></div>
+            <div class="form-group">
+                <label>用户名 <span style="color:var(--text-muted); font-weight:400;">（2-50 个字符）</span></label>
+                <input type="text" id="regUsername" required autocomplete="username" placeholder="请输入用户名" minlength="2" maxlength="50">
+            </div>
+            <div class="form-group">
+                <label>密码 <span style="color:var(--text-muted); font-weight:400;">（至少 6 个字符）</span></label>
+                <input type="password" id="regPassword" required autocomplete="new-password" placeholder="请输入密码" minlength="6">
+            </div>
+            <div class="form-group">
+                <label>确认密码</label>
+                <input type="password" id="regPassword2" required autocomplete="new-password" placeholder="请再次输入密码">
+            </div>
+            <button type="submit" class="auth-btn" id="regBtn">注 册</button>
+        </form>
+    </div>
+
+    <script src="/login.js"></script>
+</body>
+</html>

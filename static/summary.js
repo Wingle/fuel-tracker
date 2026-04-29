@@ -1,5 +1,5 @@
 /* ============================================================
-   统计汇总页 - 前端逻辑
+   统计汇总页 - 前端逻辑 (含认证)
    ============================================================ */
 
 const API = "/api";
@@ -8,9 +8,37 @@ let vehicles = [];
 let currentVehicleId = null;
 
 // ---------------------------------------------------------------------------
+// Auth helpers
+// ---------------------------------------------------------------------------
+function getToken() { return localStorage.getItem("fuel_token") || ""; }
+function authHeaders(extra = {}) { return { "Authorization": `Bearer ${getToken()}`, ...extra }; }
+async function apiFetch(url, opts = {}) {
+    opts.headers = { ...authHeaders(), ...(opts.headers || {}) };
+    const res = await fetch(url, opts);
+    if (res.status === 401) {
+        localStorage.removeItem("fuel_token");
+        localStorage.removeItem("fuel_username");
+        window.location.href = "/login.html";
+        throw new Error("登录已过期");
+    }
+    return res;
+}
+function logout() {
+    apiFetch(`${API}/auth/logout`, { method: "POST" }).catch(() => {});
+    localStorage.removeItem("fuel_token");
+    localStorage.removeItem("fuel_username");
+    window.location.href = "/login.html";
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
+    if (!getToken()) { window.location.href = "/login.html"; return; }
+    try {
+        const res = await apiFetch(`${API}/auth/me`);
+        if (!res.ok) return;
+    } catch { return; }
     await loadVehicles();
 });
 
@@ -19,7 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 // ---------------------------------------------------------------------------
 async function loadVehicles() {
     try {
-        const res = await fetch(`${API}/vehicles`);
+        const res = await apiFetch(`${API}/vehicles`);
         vehicles = await res.json();
         const sel = document.getElementById("vehicleSelect");
         sel.innerHTML = vehicles.map(v => {
@@ -54,7 +82,7 @@ async function loadPageData() {
 // ---------------------------------------------------------------------------
 async function loadStats() {
     try {
-        const res = await fetch(`${API}/stats?${getVP()}`);
+        const res = await apiFetch(`${API}/stats?${getVP()}`);
         const s = await res.json();
         document.getElementById("statMileage").textContent = s.total_mileage > 0 ? formatNum(s.total_mileage) + " km" : "-- km";
         document.getElementById("statCost").textContent = s.total_cost > 0 ? formatNum(s.total_cost) + " 元" : "-- 元";
@@ -69,7 +97,7 @@ async function loadStats() {
 // ---------------------------------------------------------------------------
 async function loadSummary() {
     try {
-        const res = await fetch(`${API}/stats/summary?${getVP()}&mode=${currentMode}`);
+        const res = await apiFetch(`${API}/stats/summary?${getVP()}&mode=${currentMode}`);
         const data = await res.json();
         renderSummary(data);
     } catch (e) { console.error("加载汇总失败", e); }
@@ -83,12 +111,10 @@ function renderSummary(data) {
     empty.style.display = "none";
     tbody.innerHTML = data.items.map(item => {
         const label = data.mode === "yearly" ? item.period + " 年" : item.period;
-        return `<tr>
-            <td><strong>${label}</strong></td><td>${item.record_count}</td>
+        return `<tr><td><strong>${label}</strong></td><td>${item.record_count}</td>
             <td>${formatNum(item.mileage)}</td><td>${formatNum(item.volume)}</td><td>${formatNum(item.cost)}</td>
             <td>${item.avg_consumption != null ? '<span class="highlight">' + item.avg_consumption + '</span>' : '<span class="text-muted">-</span>'}</td>
-            <td>${item.daily_mileage != null ? '<span class="highlight">' + item.daily_mileage + '</span>' : '<span class="text-muted">-</span>'}</td>
-        </tr>`;
+            <td>${item.daily_mileage != null ? '<span class="highlight">' + item.daily_mileage + '</span>' : '<span class="text-muted">-</span>'}</td></tr>`;
     }).join("");
 }
 
@@ -99,10 +125,4 @@ function switchMode(mode) {
     loadSummary();
 }
 
-// ---------------------------------------------------------------------------
-// Utility
-// ---------------------------------------------------------------------------
-function formatNum(n) {
-    if (n == null) return "-";
-    return Number(n).toLocaleString("zh-CN", { maximumFractionDigits: 1 });
-}
+function formatNum(n) { if (n == null) return "-"; return Number(n).toLocaleString("zh-CN", { maximumFractionDigits: 1 }); }

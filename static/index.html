@@ -10,6 +10,10 @@
     <div class="container">
         <header>
             <h1>⛽ 油耗记录</h1>
+            <div class="user-bar">
+                <span id="currentUser"></span>
+                <button class="btn btn-secondary btn-sm" onclick="logout()">退出登录</button>
+            </div>
         </header>
 
         <!-- 车辆选择栏 -->
@@ -59,6 +63,7 @@
                 <thead>
                     <tr>
                         <th>日期</th>
+                        <th>油号</th>
                         <th>里程数<span class="unit">km</span></th>
                         <th>油量<span class="unit">L</span></th>
                         <th>单价<span class="unit">元/L</span></th>
@@ -115,6 +120,15 @@
                 <div class="form-group">
                     <label for="fMileage">当前里程数 (km) <span class="required">*</span></label>
                     <input type="number" id="fMileage" step="0.1" min="0" required placeholder="例如 12345.6">
+                </div>
+                <div class="form-group">
+                    <label for="fFuelType">油号</label>
+                    <select id="fFuelType">
+                        <option value="92#" selected>92#</option>
+                        <option value="95#">95#</option>
+                        <option value="98#">98#</option>
+                        <option value="柴油">柴油</option>
+                    </select>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
