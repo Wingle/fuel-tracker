@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Database (data/ 目录是数据，不要删)
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

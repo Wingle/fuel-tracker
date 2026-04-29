@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统计汇总 - 油耗记录</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="summary-page-header">
+            <a href="/" class="back-link">&larr; 返回</a>
+            <h1>📊 统计汇总</h1>
+        </header>
+
+        <!-- 全局统计卡片 -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-label">总行驶里程</div>
+                <div class="stat-value" id="statMileage">-- km</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">加油总费用</div>
+                <div class="stat-value" id="statCost">-- 元</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">总加油量</div>
+                <div class="stat-value" id="statVolume">-- L</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">平均油耗</div>
+                <div class="stat-value" id="statConsumption">-- L/100km</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">日均行驶里程</div>
+                <div class="stat-value" id="statDaily">-- km/天</div>
+            </div>
+        </div>
+
+        <!-- 切换标签 -->
+        <div class="summary-tabs-bar">
+            <div class="summary-tabs">
+                <button class="tab active" id="tabYearly" onclick="switchMode('yearly')">按年度</button>
+                <button class="tab" id="tabMonthly" onclick="switchMode('monthly')">按月度</button>
+            </div>
+        </div>
+
+        <!-- 汇总表格 -->
+        <div class="table-wrapper">
+            <table id="summaryTable">
+                <thead>
+                    <tr>
+                        <th id="colPeriod">年度</th>
+                        <th>加油次数</th>
+                        <th>里程<span class="unit">km</span></th>
+                        <th>加油量<span class="unit">L</span></th>
+                        <th>费用<span class="unit">元</span></th>
+                        <th>平均油耗<span class="unit">L/100km</span></th>
+                        <th>日均里程<span class="unit">km/天</span></th>
+                    </tr>
+                </thead>
+                <tbody id="summaryBody"></tbody>
+            </table>
+            <div class="empty-state" id="summaryEmpty" style="display:none;">
+                <p>暂无数据</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/summary.js"></script>
+</body>
+</html>

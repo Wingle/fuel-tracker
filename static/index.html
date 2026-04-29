@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>油耗记录</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⛽ 油耗记录</h1>
+        </header>
+
+        <!-- 统计卡片 -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-label">总行驶里程</div>
+                <div class="stat-value" id="statMileage">-- km</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">加油总费用</div>
+                <div class="stat-value" id="statCost">-- 元</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">总加油量</div>
+                <div class="stat-value" id="statVolume">-- L</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">平均油耗</div>
+                <div class="stat-value" id="statConsumption">-- L/100km</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">日均行驶里程</div>
+                <div class="stat-value" id="statDaily">-- km/天</div>
+            </div>
+        </div>
+
+        <!-- 操作栏 -->
+        <div class="actions">
+            <button class="btn btn-primary" onclick="openAddModal()">+ 添加记录</button>
+            <a href="/summary.html" class="btn btn-secondary">📊 统计汇总</a>
+            <button class="btn btn-secondary" onclick="openImportModal()">📤 导入 Excel</button>
+            <button class="btn btn-secondary" onclick="exportCSV()">📥 导出 CSV</button>
+        </div>
+
+        <!-- 记录表格 -->
+        <div class="table-wrapper">
+            <table id="recordsTable">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>里程数<span class="unit">km</span></th>
+                        <th>油量<span class="unit">L</span></th>
+                        <th>单价<span class="unit">元/L</span></th>
+                        <th>总价<span class="unit">元</span></th>
+                        <th>区间里程<span class="unit">km</span></th>
+                        <th>油耗<span class="unit">L/100km</span></th>
+                        <th>每公里<span class="unit">元/km</span></th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="recordsBody">
+                </tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <p>暂无加油记录</p>
+                <p class="sub">点击「添加记录」开始记录你的油耗</p>
+            </div>
+            <!-- 分页栏 -->
+            <div class="pagination" id="pagination" style="display:none;">
+                <div class="page-size-select">
+                    <label>每页</label>
+                    <select id="pageSizeSelect" onchange="onPageSizeChange()">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="30">30</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <label>条</label>
+                </div>
+                <div class="page-info" id="pageInfo"></div>
+                <div class="page-btns">
+                    <button class="btn btn-page" id="btnFirst" onclick="goToPage(1)" title="首页">&laquo;</button>
+                    <button class="btn btn-page" id="btnPrev" onclick="goToPage(currentPage-1)" title="上一页">&lsaquo;</button>
+                    <span class="page-numbers" id="pageNumbers"></span>
+                    <button class="btn btn-page" id="btnNext" onclick="goToPage(currentPage+1)" title="下一页">&rsaquo;</button>
+                    <button class="btn btn-page" id="btnLast" onclick="goToPage(totalPages)" title="末页">&raquo;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑弹窗 -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="modalTitle">添加加油记录</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="recordForm" onsubmit="handleSubmit(event)">
+                <input type="hidden" id="editId" value="">
+                <div class="form-group">
+                    <label for="fDate">日期 <span class="required">*</span></label>
+                    <input type="date" id="fDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="fMileage">当前里程数 (km) <span class="required">*</span></label>
+                    <input type="number" id="fMileage" step="0.1" min="0" required placeholder="例如 12345.6">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fVolume">油量 (L)</label>
+                        <input type="number" id="fVolume" step="0.01" min="0" placeholder="升" oninput="onFuelInput('volume')">
+                    </div>
+                    <div class="form-group">
+                        <label for="fUnitPrice">单价 (元/L)</label>
+                        <input type="number" id="fUnitPrice" step="0.01" min="0" placeholder="元/升" oninput="onFuelInput('unit_price')">
+                    </div>
+                    <div class="form-group">
+                        <label for="fTotalPrice">总价 (元)</label>
+                        <input type="number" id="fTotalPrice" step="0.01" min="0" placeholder="元" oninput="onFuelInput('total_price')">
+                    </div>
+                </div>
+                <p class="form-hint">💡 输入任意两项，自动计算第三项</p>
+                <div class="form-group">
+                    <label for="fNote">备注</label>
+                    <input type="text" id="fNote" placeholder="可选" maxlength="500">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal-overlay" id="deleteOverlay" onclick="closeDeleteModal(event)">
+        <div class="modal modal-sm" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>确认删除</h2>
+                <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+            </div>
+            <p style="padding: 0 24px; color: #555;">确定要删除这条加油记录吗？此操作不可恢复。</p>
+            <div class="form-actions">
+                <button class="btn btn-cancel" onclick="closeDeleteModal()">取消</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDelete()">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入 Excel 弹窗 -->
+    <div class="modal-overlay" id="importOverlay" onclick="closeImportModal(event)">
+        <div class="modal modal-sm" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>导入 Excel</h2>
+                <button class="modal-close" onclick="closeImportModal()">&times;</button>
+            </div>
+            <div style="padding: 20px 24px;">
+                <p style="font-size: 0.85rem; color: #555; margin-bottom: 16px;">
+                    支持导入 <strong>.xlsx</strong> 格式的油耗记录文件。<br>
+                    需包含「加油日期」和「行驶里程」列，重复记录会自动跳过。
+                </p>
+                <div class="file-upload-area" id="fileUploadArea">
+                    <input type="file" id="importFile" accept=".xlsx,.xls" onchange="onFileSelected()" style="display:none;">
+                    <div class="file-upload-prompt" id="filePrompt" onclick="document.getElementById('importFile').click()">
+                        <span style="font-size: 2rem;">📂</span>
+                        <p>点击选择文件或拖拽到此处</p>
+                        <p class="sub" style="font-size: 0.75rem; color: #9ca3af;">支持 .xlsx 格式</p>
+                    </div>
+                    <div class="file-selected" id="fileSelected" style="display:none;">
+                        <span>📄</span>
+                        <span id="fileName"></span>
+                        <button type="button" class="btn-remove-file" onclick="clearFile()">&times;</button>
+                    </div>
+                </div>
+                <div id="importResult" style="display:none; margin-top: 12px;"></div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-cancel" onclick="closeImportModal()">取消</button>
+                <button class="btn btn-primary" id="importBtn" onclick="doImport()" disabled>开始导入</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
