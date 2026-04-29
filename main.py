@@ -497,72 +497,188 @@ def export_csv(vehicle_id: int = Query(...), user: User = Depends(get_current_us
 
 
 # ---------------------------------------------------------------------------
-# Import Excel (auth required)
+# Import helpers (shared by xlsx / csv)
 # ---------------------------------------------------------------------------
-@app.post("/api/import/xlsx", response_model=ImportResult)
-async def import_xlsx(
-    file: UploadFile = File(...), vehicle_id: int = Form(...),
-    user: User = Depends(get_current_user), db: Session = Depends(get_db),
-):
-    _get_user_vehicle(db, user, vehicle_id)
-    if not file.filename.endswith((".xlsx", ".xls")):
-        raise HTTPException(status_code=400, detail="请上传 .xlsx 格式的文件")
-    contents = await file.read()
-    try:
-        wb = openpyxl.load_workbook(io.BytesIO(contents), read_only=True, data_only=True)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"无法读取 Excel 文件: {e}")
-    ws = wb[wb.sheetnames[0]]
-    header_row = [str(c.value or "").strip() for c in next(ws.iter_rows(min_row=1, max_row=1))]
-    col_map = {}
-    HEADER_KEYWORDS = {
-        "date": ["加油日期", "日期"], "volume": ["加油量", "油量"],
-        "unit_price": ["支付单价", "单价"], "total_price": ["支付总额", "总价", "总额"],
-        "mileage": ["行驶里程", "里程数", "里程"], "fuel_type": ["油号", "燃油类型"],
-    }
+_HEADER_KEYWORDS = {
+    "date": ["加油日期", "日期"],
+    "volume": ["加油量", "油量"],
+    "unit_price": ["支付单价", "单价"],
+    "total_price": ["支付总额", "总价", "总额"],
+    "mileage": ["行驶里程", "里程数", "里程"],
+    "fuel_type": ["油号", "燃油类型"],
+    "note": ["备注"],
+}
+
+_SKIP_KEYWORDS = ["总记录", "总增加", "总加油", "总支付", "平均油耗", "统计汇总", "用户ID", "weCarId"]
+
+
+def _build_col_map(header_row: list[str]) -> dict[str, int]:
+    """Map logical field names to column indices by matching Chinese header keywords."""
+    col_map: dict[str, int] = {}
     for idx, h in enumerate(header_row):
-        for field, keywords in HEADER_KEYWORDS.items():
+        for field, keywords in _HEADER_KEYWORDS.items():
             if field not in col_map:
                 for kw in keywords:
                     if kw in h:
                         col_map[field] = idx
                         break
+    return col_map
+
+
+def _import_rows(
+    rows: list[tuple | list],
+    col_map: dict[str, int],
+    vehicle_id: int,
+    db: Session,
+    row_offset: int = 2,
+) -> tuple[int, int, list[str]]:
+    """Process data rows and insert FuelRecords. Returns (imported, skipped, errors)."""
+    existing: set[tuple[str, float]] = set()
+    for rec in db.query(FuelRecord.date, FuelRecord.mileage).filter(FuelRecord.vehicle_id == vehicle_id).all():
+        existing.add((str(rec.date), float(rec.mileage)))
+
+    imported = 0; skipped = 0; errors: list[str] = []
+    for i, row in enumerate(rows):
+        row_idx = i + row_offset
+        first_cell = row[0] if row else None
+        if first_cell is None:
+            continue
+        if isinstance(first_cell, str) and any(kw in first_cell for kw in _SKIP_KEYWORDS):
+            continue
+        try:
+            # --- date ---
+            raw_date = row[col_map["date"]] if "date" in col_map else None
+            if raw_date is None:
+                continue
+            if isinstance(raw_date, datetime):
+                rec_date = raw_date.date()
+            elif isinstance(raw_date, date):
+                rec_date = raw_date
+            elif isinstance(raw_date, str):
+                raw_date = raw_date.strip()
+                if not raw_date:
+                    continue
+                rec_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+            else:
+                errors.append(f"第 {row_idx} 行: 无法解析日期 '{raw_date}'")
+                continue
+
+            # --- mileage ---
+            raw_mileage = row[col_map["mileage"]] if "mileage" in col_map else None
+            if raw_mileage is None:
+                continue
+            mileage = float(raw_mileage)
+            if (str(rec_date), mileage) in existing:
+                skipped += 1
+                continue
+
+            # --- optional fields ---
+            def _float(field: str):
+                if field not in col_map:
+                    return None
+                val = row[col_map[field]] if col_map[field] < len(row) else None
+                if val is None or (isinstance(val, str) and not val.strip()):
+                    return None
+                return float(val)
+
+            volume = _float("volume")
+            unit_price = _float("unit_price")
+            total_price = _float("total_price")
+
+            fuel_type = None
+            if "fuel_type" in col_map and col_map["fuel_type"] < len(row) and row[col_map["fuel_type"]] is not None:
+                ft = str(row[col_map["fuel_type"]]).strip()
+                if ft:
+                    fuel_type = ft
+
+            note_val = ""
+            if "note" in col_map and col_map["note"] < len(row) and row[col_map["note"]] is not None:
+                note_val = str(row[col_map["note"]]).strip()
+
+            record = FuelRecord(
+                vehicle_id=vehicle_id, date=rec_date, mileage=mileage,
+                volume=volume, unit_price=unit_price, total_price=total_price,
+                fuel_type=fuel_type, note=note_val,
+            )
+            db.add(record)
+            existing.add((str(rec_date), mileage))
+            imported += 1
+        except Exception as e:
+            errors.append(f"第 {row_idx} 行: {e}")
+
+    if imported > 0:
+        db.commit()
+    return imported, skipped, errors
+
+
+def _parse_csv_bytes(contents: bytes) -> tuple[list[str], list[list[str]]]:
+    """Decode CSV bytes (auto-detect encoding) and return (header, data_rows)."""
+    text = None
+    for encoding in ("utf-8-sig", "utf-8", "gbk", "gb18030"):
+        try:
+            text = contents.decode(encoding)
+            break
+        except (UnicodeDecodeError, LookupError):
+            continue
+    if text is None:
+        raise ValueError("无法识别 CSV 文件编码，请使用 UTF-8 或 GBK 编码")
+    reader = csv.reader(io.StringIO(text))
+    all_rows = list(reader)
+    if len(all_rows) < 1:
+        raise ValueError("CSV 文件为空")
+    header = [h.strip() for h in all_rows[0]]
+    data = [row for row in all_rows[1:] if any(cell.strip() for cell in row)]
+    return header, data
+
+
+# ---------------------------------------------------------------------------
+# Import file — unified endpoint (xlsx / csv)
+# ---------------------------------------------------------------------------
+@app.post("/api/import/file", response_model=ImportResult)
+async def import_file(
+    file: UploadFile = File(...), vehicle_id: int = Form(...),
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    _get_user_vehicle(db, user, vehicle_id)
+    filename = (file.filename or "").lower()
+    contents = await file.read()
+
+    if filename.endswith((".xlsx", ".xls")):
+        # --- Excel ---
+        try:
+            wb = openpyxl.load_workbook(io.BytesIO(contents), read_only=True, data_only=True)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"无法读取 Excel 文件: {e}")
+        ws = wb[wb.sheetnames[0]]
+        header_row = [str(c.value or "").strip() for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        data_rows = list(ws.iter_rows(min_row=2, values_only=True))
+        wb.close()
+    elif filename.endswith(".csv"):
+        # --- CSV ---
+        try:
+            header_row, data_rows = _parse_csv_bytes(contents)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    else:
+        raise HTTPException(status_code=400, detail="请上传 .xlsx 或 .csv 格式的文件")
+
+    col_map = _build_col_map(header_row)
     required = ["date", "mileage"]
     missing = [f for f in required if f not in col_map]
     if missing:
-        raise HTTPException(status_code=400, detail=f"Excel 中缺少必要的列: {', '.join(missing)}。找到的表头: {header_row}")
-    existing = set()
-    for rec in db.query(FuelRecord.date, FuelRecord.mileage).filter(FuelRecord.vehicle_id == vehicle_id).all():
-        existing.add((str(rec.date), float(rec.mileage)))
-    imported = 0; skipped = 0; errors: list[str] = []
-    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-        first_cell = row[0] if row else None
-        if first_cell is None: continue
-        if isinstance(first_cell, str) and any(kw in first_cell for kw in ["总记录", "总增加", "总加油", "总支付", "平均油耗", "统计汇总", "用户ID", "weCarId"]): continue
-        try:
-            raw_date = row[col_map["date"]] if "date" in col_map else None
-            if raw_date is None: continue
-            if isinstance(raw_date, datetime): rec_date = raw_date.date()
-            elif isinstance(raw_date, date): rec_date = raw_date
-            elif isinstance(raw_date, str):
-                raw_date = raw_date.strip()
-                if not raw_date: continue
-                rec_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
-            else: errors.append(f"第 {row_idx} 行: 无法解析日期 '{raw_date}'"); continue
-            raw_mileage = row[col_map["mileage"]] if "mileage" in col_map else None
-            if raw_mileage is None: continue
-            mileage = float(raw_mileage)
-            if (str(rec_date), mileage) in existing: skipped += 1; continue
-            volume = float(row[col_map["volume"]]) if "volume" in col_map and row[col_map["volume"]] is not None else None
-            unit_price = float(row[col_map["unit_price"]]) if "unit_price" in col_map and row[col_map["unit_price"]] is not None else None
-            total_price = float(row[col_map["total_price"]]) if "total_price" in col_map and row[col_map["total_price"]] is not None else None
-            note = str(row[col_map["fuel_type"]]).strip() if "fuel_type" in col_map and row[col_map["fuel_type"]] is not None else ""
-            record = FuelRecord(vehicle_id=vehicle_id, date=rec_date, mileage=mileage, volume=volume, unit_price=unit_price, total_price=total_price, note=note)
-            db.add(record); existing.add((str(rec_date), mileage)); imported += 1
-        except Exception as e: errors.append(f"第 {row_idx} 行: {e}")
-    if imported > 0: db.commit()
-    wb.close()
+        raise HTTPException(status_code=400, detail=f"文件中缺少必要的列: {', '.join(missing)}。找到的表头: {header_row}")
+
+    imported, skipped, errors = _import_rows(data_rows, col_map, vehicle_id, db)
     return ImportResult(imported=imported, skipped=skipped, errors=errors[:20])
+
+
+# Keep old path for backwards compatibility
+@app.post("/api/import/xlsx", response_model=ImportResult)
+async def import_xlsx_compat(
+    file: UploadFile = File(...), vehicle_id: int = Form(...),
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    return await import_file(file=file, vehicle_id=vehicle_id, user=user, db=db)
 
 
 # ---------------------------------------------------------------------------

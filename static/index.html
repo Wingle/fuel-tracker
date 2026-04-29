@@ -58,7 +58,7 @@
         <div class="actions">
             <button class="btn btn-primary" onclick="openAddModal()">+ 添加记录</button>
             <a href="/summary.html" class="btn btn-secondary">📊 统计汇总</a>
-            <button class="btn btn-secondary" onclick="openImportModal()">📤 导入 Excel</button>
+            <button class="btn btn-secondary" onclick="openImportModal()">📤 导入数据</button>
             <button class="btn btn-secondary" onclick="exportCSV()">📥 导出 CSV</button>
         </div>
 
@@ -177,24 +177,24 @@
         </div>
     </div>
 
-    <!-- 导入 Excel 弹窗 -->
+    <!-- 导入数据弹窗 -->
     <div class="modal-overlay" id="importOverlay" onclick="closeImportModal(event)">
         <div class="modal modal-sm" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2>导入 Excel</h2>
+                <h2>导入数据</h2>
                 <button class="modal-close" onclick="closeImportModal()">&times;</button>
             </div>
             <div style="padding: 20px 24px;">
                 <p style="font-size: 0.85rem; color: #555; margin-bottom: 16px;">
-                    支持导入 <strong>.xlsx</strong> 格式的油耗记录文件。<br>
+                    支持导入 <strong>.xlsx</strong> 和 <strong>.csv</strong> 格式的油耗记录文件。<br>
                     记录将导入到当前选中的车辆，重复记录会自动跳过。
                 </p>
                 <div class="file-upload-area" id="fileUploadArea">
-                    <input type="file" id="importFile" accept=".xlsx,.xls" onchange="onFileSelected()" style="display:none;">
+                    <input type="file" id="importFile" accept=".xlsx,.xls,.csv" onchange="onFileSelected()" style="display:none;">
                     <div class="file-upload-prompt" id="filePrompt" onclick="document.getElementById('importFile').click()">
                         <span style="font-size: 2rem;">📂</span>
                         <p>点击选择文件或拖拽到此处</p>
-                        <p class="sub" style="font-size: 0.75rem; color: #9ca3af;">支持 .xlsx 格式</p>
+                        <p class="sub" style="font-size: 0.75rem; color: #9ca3af;">支持 .xlsx / .csv 格式</p>
                     </div>
                     <div class="file-selected" id="fileSelected" style="display:none;">
                         <span>📄</span>

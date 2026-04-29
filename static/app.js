@@ -341,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const area = document.getElementById("fileUploadArea"); if (!area) return;
     area.addEventListener("dragover", (e) => { e.preventDefault(); area.classList.add("dragover"); });
     area.addEventListener("dragleave", () => { area.classList.remove("dragover"); });
-    area.addEventListener("drop", (e) => { e.preventDefault(); area.classList.remove("dragover"); const files = e.dataTransfer.files; if (files.length > 0 && files[0].name.match(/\.xlsx?$/i)) { document.getElementById("importFile").files = files; onFileSelected(); } });
+    area.addEventListener("drop", (e) => { e.preventDefault(); area.classList.remove("dragover"); const files = e.dataTransfer.files; if (files.length > 0 && files[0].name.match(/\.(xlsx?|csv)$/i)) { document.getElementById("importFile").files = files; onFileSelected(); } });
 });
 
 async function doImport() {
@@ -350,7 +350,7 @@ async function doImport() {
     const formData = new FormData(); formData.append("file", input.files[0]); formData.append("vehicle_id", currentVehicleId);
     const resultDiv = document.getElementById("importResult");
     try {
-        const res = await apiFetch(`${API}/import/xlsx`, { method: "POST", body: formData });
+        const res = await apiFetch(`${API}/import/file`, { method: "POST", body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "导入失败");
         let html = data.imported > 0
